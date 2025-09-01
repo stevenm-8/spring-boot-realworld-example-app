@@ -2,6 +2,7 @@ package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -92,5 +93,136 @@ public class ProfileApiTest extends TestWithCurrentUser {
         .statusCode(200);
 
     verify(userRepository).removeRelation(eq(followRelation));
+  }
+
+  @Test
+  public void should_return_404_for_non_existent_profile() throws Exception {
+    when(profileQueryService.findByUsername(eq("nonexistent"), eq(null)))
+        .thenReturn(Optional.empty());
+
+    RestAssuredMockMvc.when()
+        .get("/profiles/nonexistent")
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_prevent_self_follow() throws Exception {
+    when(profileQueryService.findByUsername(eq(user.getUsername()), eq(user)))
+        .thenReturn(Optional.of(new ProfileData(user.getId(), user.getUsername(), user.getBio(), user.getImage(), false)));
+    
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .post("/profiles/{username}/follow", user.getUsername())
+        .then()
+        .statusCode(200);
+  }
+
+  @Test
+  public void should_handle_follow_non_existent_user() throws Exception {
+    when(userRepository.findByUsername(eq("nonexistent")))
+        .thenReturn(Optional.empty());
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .post("/profiles/nonexistent/follow")
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_handle_unfollow_when_not_following() throws Exception {
+    when(userRepository.findRelation(any(), any()))
+        .thenReturn(Optional.empty());
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/profiles/{username}/follow", anotherUser.getUsername())
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_require_authentication_for_follow() throws Exception {
+    given()
+        .when()
+        .post("/profiles/{username}/follow", anotherUser.getUsername())
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_require_authentication_for_unfollow() throws Exception {
+    given()
+        .when()
+        .delete("/profiles/{username}/follow", anotherUser.getUsername())
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_handle_profile_with_empty_bio() throws Exception {
+    ProfileData emptyBioProfile = new ProfileData(
+        anotherUser.getId(), 
+        anotherUser.getUsername(), 
+        "", 
+        anotherUser.getImage(), 
+        false
+    );
+    when(profileQueryService.findByUsername(eq(anotherUser.getUsername()), eq(null)))
+        .thenReturn(Optional.of(emptyBioProfile));
+
+    RestAssuredMockMvc.when()
+        .get("/profiles/{username}", anotherUser.getUsername())
+        .then()
+        .statusCode(200)
+        .body("profile.username", equalTo(anotherUser.getUsername()))
+        .body("profile.bio", equalTo(""))
+        .body("profile.following", equalTo(false));
+  }
+
+  @Test
+  public void should_handle_profile_with_null_image() throws Exception {
+    ProfileData nullImageProfile = new ProfileData(
+        anotherUser.getId(), 
+        anotherUser.getUsername(), 
+        anotherUser.getBio(), 
+        null, 
+        false
+    );
+    when(profileQueryService.findByUsername(eq(anotherUser.getUsername()), eq(null)))
+        .thenReturn(Optional.of(nullImageProfile));
+
+    RestAssuredMockMvc.when()
+        .get("/profiles/{username}", anotherUser.getUsername())
+        .then()
+        .statusCode(200)
+        .body("profile.username", equalTo(anotherUser.getUsername()))
+        .body("profile.following", equalTo(false));
+  }
+
+  @Test
+  public void should_show_following_status_when_authenticated() throws Exception {
+    ProfileData followingProfile = new ProfileData(
+        anotherUser.getId(), 
+        anotherUser.getUsername(), 
+        anotherUser.getBio(), 
+        anotherUser.getImage(), 
+        true
+    );
+    when(profileQueryService.findByUsername(eq(anotherUser.getUsername()), eq(user)))
+        .thenReturn(Optional.of(followingProfile));
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .get("/profiles/{username}", anotherUser.getUsername())
+        .then()
+        .statusCode(200)
+        .body("profile.username", equalTo(anotherUser.getUsername()))
+        .body("profile.following", equalTo(true));
   }
 }
