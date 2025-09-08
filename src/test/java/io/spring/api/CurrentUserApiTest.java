@@ -176,4 +176,53 @@ public class CurrentUserApiTest extends TestWithCurrentUser {
         .then()
         .statusCode(401);
   }
+
+  @Test
+  public void should_get_error_if_username_exists_when_update_user_profile() throws Exception {
+    String newEmail = "newemail@example.com";
+    String newBio = "updated";
+    String existingUsername = "existinguser";
+
+    Map<String, Object> param = prepareUpdateParam(newEmail, newBio, existingUsername);
+
+    when(userRepository.findByUsername(eq(existingUsername)))
+        .thenReturn(Optional.of(new User("other@email.com", existingUsername, "123", "", "")));
+    when(userRepository.findByEmail(eq(newEmail))).thenReturn(Optional.empty());
+
+    when(userQueryService.findById(eq(user.getId()))).thenReturn(Optional.of(userData));
+
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Token " + token)
+        .body(param)
+        .when()
+        .put("/user")
+        .then()
+        .statusCode(422)
+        .body("errors.username[0]", equalTo("username already exist"));
+  }
+
+  @Test
+  public void should_get_401_with_malformed_token() throws Exception {
+    String malformedToken = "malformed-token";
+    when(jwtService.getSubFromToken(eq(malformedToken))).thenReturn(Optional.empty());
+
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Token " + malformedToken)
+        .when()
+        .get("/user")
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_get_401_with_missing_authorization_header() throws Exception {
+    given()
+        .contentType("application/json")
+        .when()
+        .get("/user")
+        .then()
+        .statusCode(401);
+  }
 }

@@ -31,4 +31,26 @@ public class MyBatisArticleFavoriteRepositoryTest extends DbTestBase {
     articleFavoriteRepository.remove(articleFavorite);
     Assertions.assertFalse(articleFavoriteRepository.find("123", "456").isPresent());
   }
+
+  @Test
+  public void should_handle_duplicate_favorite_gracefully() {
+    ArticleFavorite articleFavorite = new ArticleFavorite("123", "456");
+    articleFavoriteRepository.save(articleFavorite);
+    
+    articleFavoriteRepository.save(articleFavorite);
+    
+    Assertions.assertTrue(articleFavoriteRepository.find("123", "456").isPresent());
+  }
+
+  @Test
+  public void should_return_empty_when_favorite_not_found() {
+    Assertions.assertFalse(articleFavoriteRepository.find("non-existent", "non-existent").isPresent());
+  }
+
+  @Test
+  public void should_remove_non_existent_favorite_gracefully() {
+    ArticleFavorite nonExistentFavorite = new ArticleFavorite("non-existent", "non-existent");
+    articleFavoriteRepository.remove(nonExistentFavorite);
+    Assertions.assertFalse(articleFavoriteRepository.find("non-existent", "non-existent").isPresent());
+  }
 }

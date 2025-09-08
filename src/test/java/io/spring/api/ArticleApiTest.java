@@ -206,6 +206,61 @@ public class ArticleApiTest extends TestWithCurrentUser {
         .statusCode(403);
   }
 
+  @Test
+  public void should_get_404_when_update_non_existent_article() throws Exception {
+    String nonExistentSlug = "non-existent-article";
+    when(articleRepository.findBySlug(eq(nonExistentSlug))).thenReturn(Optional.empty());
+
+    Map<String, Object> updateParam = prepareUpdateParam("title", "body", "description");
+
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Token " + token)
+        .body(updateParam)
+        .when()
+        .put("/articles/{slug}", nonExistentSlug)
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_get_404_when_delete_non_existent_article() throws Exception {
+    String nonExistentSlug = "non-existent-article";
+    when(articleRepository.findBySlug(eq(nonExistentSlug))).thenReturn(Optional.empty());
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/articles/{slug}", nonExistentSlug)
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_get_401_when_update_article_without_authentication() throws Exception {
+    String testSlug = "test-article-slug";
+    Map<String, Object> updateParam = prepareUpdateParam("title", "body", "description");
+
+    given()
+        .contentType("application/json")
+        .body(updateParam)
+        .when()
+        .put("/articles/{slug}", testSlug)
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_get_401_when_delete_article_without_authentication() throws Exception {
+    String testSlug = "test-article-slug";
+    
+    given()
+        .when()
+        .delete("/articles/{slug}", testSlug)
+        .then()
+        .statusCode(401);
+  }
+
   private HashMap<String, Object> prepareUpdateParam(
       final String title, final String body, final String description) {
     return new HashMap<String, Object>() {
