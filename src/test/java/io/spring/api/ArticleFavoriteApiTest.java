@@ -100,4 +100,62 @@ public class ArticleFavoriteApiTest extends TestWithCurrentUser {
         .body("article.id", equalTo(article.getId()));
     verify(articleFavoriteRepository).remove(new ArticleFavorite(article.getId(), user.getId()));
   }
+
+  @Test
+  public void should_get_404_when_favorite_non_existent_article() throws Exception {
+    String nonExistentSlug = "non-existent-article";
+    when(articleRepository.findBySlug(eq(nonExistentSlug))).thenReturn(Optional.empty());
+    
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .post("/articles/{slug}/favorite", nonExistentSlug)
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_get_404_when_unfavorite_non_existent_article() throws Exception {
+    String nonExistentSlug = "non-existent-article";
+    when(articleRepository.findBySlug(eq(nonExistentSlug))).thenReturn(Optional.empty());
+    
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/articles/{slug}/favorite", nonExistentSlug)
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_get_401_when_favorite_without_authentication() throws Exception {
+    given()
+        .when()
+        .post("/articles/{slug}/favorite", article.getSlug())
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_get_401_when_unfavorite_without_authentication() throws Exception {
+    given()
+        .when()
+        .delete("/articles/{slug}/favorite", article.getSlug())
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_unfavorite_article_not_favorited_gracefully() throws Exception {
+    when(articleFavoriteRepository.find(eq(article.getId()), eq(user.getId())))
+        .thenReturn(Optional.empty());
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/articles/{slug}/favorite", article.getSlug())
+        .then()
+        .statusCode(200)
+        .body("article.slug", equalTo(article.getSlug()));
+  }
 }

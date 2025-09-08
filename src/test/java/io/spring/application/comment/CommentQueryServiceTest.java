@@ -73,4 +73,30 @@ public class CommentQueryServiceTest extends DbTestBase {
     List<CommentData> comments = commentQueryService.findByArticleId(article.getId(), user);
     Assertions.assertEquals(comments.size(), 2);
   }
+
+  @Test
+  public void should_return_empty_when_comment_not_found() {
+    Optional<CommentData> optional = commentQueryService.findById("non-existent-id", user);
+    Assertions.assertFalse(optional.isPresent());
+  }
+
+  @Test
+  public void should_return_empty_list_when_no_comments_for_article() {
+    String articleIdWithNoComments = "article-with-no-comments";
+    List<CommentData> comments = commentQueryService.findByArticleId(articleIdWithNoComments, user);
+    Assertions.assertTrue(comments.isEmpty());
+  }
+
+  @Test
+  public void should_read_comments_without_current_user() {
+    Article article = new Article("title", "desc", "body", Arrays.asList("java"), user.getId());
+    articleRepository.save(article);
+
+    Comment comment1 = new Comment("content1", user.getId(), article.getId());
+    commentRepository.save(comment1);
+
+    List<CommentData> comments = commentQueryService.findByArticleId(article.getId(), null);
+    Assertions.assertEquals(comments.size(), 1);
+    Assertions.assertFalse(comments.get(0).getProfileData().isFollowing());
+  }
 }
